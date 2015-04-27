@@ -60,6 +60,7 @@
     <Compile Include="Core\Events\AllOf.cs" />
     <Compile Include="Core\Resources\Container.cs" />
     <Compile Include="Core\Environment.cs" />
+    <Compile Include="Core\Resources\Events\ResourceGroupRequest.cs" />
     <Compile Include="Core\Resources\Events\ResourcePoolRequest.cs" />
     <Compile Include="Core\Resources\Events\FilterStoreGet.cs" />
     <Compile Include="Core\Resources\Events\StorePut.cs" />
@@ -80,7 +81,9 @@
     <Compile Include="Core\Resources\PreemptiveResource.cs" />
     <Compile Include="Core\Resources\PriorityResource.cs" />
     <Compile Include="Core\Resources\Resource.cs" />
+    <Compile Include="Core\Resources\ResourceGroup.cs" />
     <Compile Include="Core\Resources\ResourcePool.cs" />
+    <Compile Include="Core\Resources\Model\ResourceQuantity.cs" />
     <Compile Include="Core\Resources\Store.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Random\FastRandom.cs" />

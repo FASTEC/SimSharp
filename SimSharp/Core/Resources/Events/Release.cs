@@ -18,14 +18,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 
 using System;
 
-namespace SimSharp {
-  public sealed class Release : Event {
-    public Request Request { get; private set; }
-
-    public Release(Environment environment, Request request, Action<Event> callback)
-      : base(environment) {
-      Request = request;
-      CallbackList.Add(callback);
+namespace SimSharp
+{
+    public sealed class Release : Event
+    {
+        public Request Request { get; private set; }
+        public Release(Environment environment, Request request, Action<Event> callback)
+      : base(environment)
+        {
+            Request = request;
+            CallbackList.Add(callback);
+        }
     }
-  }
 }

@@ -20,79 +20,99 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SimSharp {
-  public class Resource {
+namespace SimSharp
+{
+    public class Resource
+    {
+        public Guid Id { get; private set; }
+        public double Capacity { get; protected set; }
 
-    public int Capacity { get; protected set; }
+        public double InUse { get; private set; }
 
-    public int InUse { get { return Users.Count; } }
+        public double Remaining { get { return Capacity - InUse; } }
 
-    public int Remaining { get { return Capacity - InUse; } }
+        protected Environment Environment { get; private set; }
 
-    protected Environment Environment { get; private set; }
+        protected Queue<Request> RequestQueue { get; private set; }
+        protected Queue<Release> ReleaseQueue { get; private set; }
+        protected HashSet<Request> Users { get; private set; }
 
-    protected Queue<Request> RequestQueue { get; private set; }
-    protected Queue<Release> ReleaseQueue { get; private set; }
-    protected HashSet<Request> Users { get; private set; }
+        public Resource(Environment environment, double capacity = 1)
+        {
+            Id = Guid.NewGuid();
+            if (capacity <= 0) throw new ArgumentException("Capacity must > 0.", "capacity");
+            Environment = environment;
+            Capacity = capacity;
+            RequestQueue = new Queue<Request>();
+            ReleaseQueue = new Queue<Release>();
+            Users = new HashSet<Request>();
+        }
 
-    public Resource(Environment environment, int capacity = 1) {
-      if (capacity <= 0) throw new ArgumentException("Capacity must > 0.", "capacity");
-      Environment = environment;
-      Capacity = capacity;
-      RequestQueue = new Queue<Request>();
-      ReleaseQueue = new Queue<Release>();
-      Users = new HashSet<Request>();
+        public virtual Request Request(double quantity = 1)
+        {
+            var request = new Request(Environment, TriggerRelease, DisposeCallback, quantity);
+            RequestQueue.Enqueue(request);
+            TriggerRequest();
+            return request;
+        }
+
+        public virtual Release Release(Request request)
+        {
+            var release = new Release(Environment, request, TriggerRequest);
+            ReleaseQueue.Enqueue(release);
+            TriggerRelease();
+            return release;
+        }
+
+        protected virtual void DisposeCallback(Event @event)
+        {
+            var request = @event as Request;
+            if (request != null) Release(request);
+        }
+
+        protected virtual void DoRequest(Request request)
+        {
+            if (request.Quantity <= Remaining)
+            {
+                InUse += request.Quantity;
+                Users.Add(request);
+                request.Succeed();
+            }
+        }
+
+        protected virtual void DoRelease(Release release)
+        {
+            Users.Remove(release.Request);
+            InUse -= release.Request.Quantity;
+            release.Succeed();
+        }
+
+        protected virtual void TriggerRequest(Event @event = null)
+        {
+            while (RequestQueue.Count > 0)
+            {
+                var request = RequestQueue.Peek();
+                DoRequest(request);
+                if (request.IsTriggered)
+                {
+                    RequestQueue.Dequeue();
+                }
+                else break;
+            }
+        }
+
+        protected virtual void TriggerRelease(Event @event = null)
+        {
+            while (ReleaseQueue.Count > 0)
+            {
+                var release = ReleaseQueue.Peek();
+                DoRelease(release);
+                if (release.IsTriggered)
+                {
+                    ReleaseQueue.Dequeue();
+                }
+                else break;
+            }
+        }
     }
-
-    public virtual Request Request() {
-      var request = new Request(Environment, TriggerRelease, DisposeCallback);
-      RequestQueue.Enqueue(request);
-      TriggerRequest();
-      return request;
-    }
-
-    public virtual Release Release(Request request) {
-      var release = new Release(Environment, request, TriggerRequest);
-      ReleaseQueue.Enqueue(release);
-      TriggerRelease();
-      return release;
-    }
-
-    protected virtual void DisposeCallback(Event @event) {
-      var request = @event as Request;
-      if (request != null) Release(request);
-    }
-
-    protected virtual void DoRequest(Request request) {
-      if (Users.Count < Capacity) {
-        Users.Add(request);
-        request.Succeed();
-      }
-    }
-
-    protected virtual void DoRelease(Release release) {
-      Users.Remove(release.Request);
-      release.Succeed();
-    }
-
-    protected virtual void TriggerRequest(Event @event = null) {
-      while (RequestQueue.Count > 0) {
-        var request = RequestQueue.Peek();
-        DoRequest(request);
-        if (request.IsTriggered) {
-          RequestQueue.Dequeue();
-        } else break;
-      }
-    }
-
-    protected virtual void TriggerRelease(Event @event = null) {
-      while (ReleaseQueue.Count > 0) {
-        var release = ReleaseQueue.Peek();
-        DoRelease(release);
-        if (release.IsTriggered) {
-          ReleaseQueue.Dequeue();
-        } else break;
-      }
-    }
-  }
 }

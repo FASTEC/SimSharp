@@ -76,7 +76,6 @@ namespace SimSharp.Samples {
       }
     }
 
-
     private IEnumerable<Event> GasStationControl(Environment env, Container fuelPump) {
       /*
        * Periodically check the level of the *fuel_pump* and call the tank
