@@ -7,7 +7,7 @@ namespace SimSharp.Core.Resources.Model
 {
     public class ResourceQuantity
     {
-        public Guid ResourceId { get; set; }
+        public string ResourceId { get; set; }
         public double Quantity { get; set; }
     }
 }

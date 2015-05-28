@@ -20,11 +20,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SimSharp
-{
-    public class Resource
-    {
-        public Guid Id { get; private set; }
+namespace SimSharp {
+    public class Resource {
+        public string Id { get; set; }
         public double Capacity { get; protected set; }
 
         public double InUse { get; private set; }
@@ -37,10 +35,9 @@ namespace SimSharp
         protected Queue<Release> ReleaseQueue { get; private set; }
         protected HashSet<Request> Users { get; private set; }
 
-        public Resource(Environment environment, double capacity = 1)
-        {
-            Id = Guid.NewGuid();
-            if (capacity <= 0) throw new ArgumentException("Capacity must > 0.", "capacity");
+        public Resource( Environment environment, double capacity = 1, string id = null ) {
+            Id = id == null ? string.Empty : id;
+            if ( capacity <= 0 ) throw new ArgumentException( "Capacity must > 0.", "capacity" );
             Environment = environment;
             Capacity = capacity;
             RequestQueue = new Queue<Request>();
@@ -48,67 +45,55 @@ namespace SimSharp
             Users = new HashSet<Request>();
         }
 
-        public virtual Request Request(double quantity = 1)
-        {
-            var request = new Request(Environment, TriggerRelease, DisposeCallback, quantity);
-            RequestQueue.Enqueue(request);
+        public virtual Request Request( double quantity = 1 ) {
+            var request = new Request( Environment, TriggerRelease, DisposeCallback, quantity );
+            RequestQueue.Enqueue( request );
             TriggerRequest();
             return request;
         }
 
-        public virtual Release Release(Request request)
-        {
-            var release = new Release(Environment, request, TriggerRequest);
-            ReleaseQueue.Enqueue(release);
+        public virtual Release Release( Request request ) {
+            var release = new Release( Environment, request, TriggerRequest );
+            ReleaseQueue.Enqueue( release );
             TriggerRelease();
             return release;
         }
 
-        protected virtual void DisposeCallback(Event @event)
-        {
+        protected virtual void DisposeCallback( Event @event ) {
             var request = @event as Request;
-            if (request != null) Release(request);
+            if ( request != null ) Release( request );
         }
 
-        protected virtual void DoRequest(Request request)
-        {
-            if (request.Quantity <= Remaining)
-            {
+        protected virtual void DoRequest( Request request ) {
+            if ( request.Quantity <= Remaining ) {
                 InUse += request.Quantity;
-                Users.Add(request);
+                Users.Add( request );
                 request.Succeed();
             }
         }
 
-        protected virtual void DoRelease(Release release)
-        {
-            Users.Remove(release.Request);
+        protected virtual void DoRelease( Release release ) {
+            Users.Remove( release.Request );
             InUse -= release.Request.Quantity;
             release.Succeed();
         }
 
-        protected virtual void TriggerRequest(Event @event = null)
-        {
-            while (RequestQueue.Count > 0)
-            {
+        protected virtual void TriggerRequest( Event @event = null ) {
+            while ( RequestQueue.Count > 0 ) {
                 var request = RequestQueue.Peek();
-                DoRequest(request);
-                if (request.IsTriggered)
-                {
+                DoRequest( request );
+                if ( request.IsTriggered ) {
                     RequestQueue.Dequeue();
                 }
                 else break;
             }
         }
 
-        protected virtual void TriggerRelease(Event @event = null)
-        {
-            while (ReleaseQueue.Count > 0)
-            {
+        protected virtual void TriggerRelease( Event @event = null ) {
+            while ( ReleaseQueue.Count > 0 ) {
                 var release = ReleaseQueue.Peek();
-                DoRelease(release);
-                if (release.IsTriggered)
-                {
+                DoRelease( release );
+                if ( release.IsTriggered ) {
                     ReleaseQueue.Dequeue();
                 }
                 else break;
