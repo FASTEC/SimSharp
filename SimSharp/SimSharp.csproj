@@ -89,6 +89,7 @@
     <Compile Include="Random\FastRandom.cs" />
     <Compile Include="Random\IRandom.cs" />
     <Compile Include="Random\SystemRandom.cs" />
+    <Compile Include="RealTimeEnvironment.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SimSharp.snk" />

@@ -56,7 +56,7 @@ namespace SimSharp.Core.Resources {
 
         private void RequestedResourceLoop( Action<ResourceQuantity, Resource> action, ResourceGroupRequest request ) {
             foreach ( var rr in request.RequestedResources ) {
-                var resource = this.Resources.FirstOrDefault( x => x.Id == rr.ResourceId );
+                var resource = this.Resources.FirstOrDefault( x => x.Id.ToLower() == rr.ResourceId );
                 if ( resource != null ) {
                     action( rr, resource );
                 }
