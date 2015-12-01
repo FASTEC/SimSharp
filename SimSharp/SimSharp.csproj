@@ -14,6 +14,7 @@
     <TargetFrameworkProfile />
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SimSharp.snk</AssemblyOriginatorKeyFile>
+    <VersionControlSystem>GIT</VersionControlSystem>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -89,15 +90,17 @@
     <Compile Include="Random\FastRandom.cs" />
     <Compile Include="Random\IRandom.cs" />
     <Compile Include="Random\SystemRandom.cs" />
-    <Compile Include="RealTimeEnvironment.cs" />
+    <Compile Include="Core\RealTimeEnvironment.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
     <None Include="SimSharp.snk" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Collections\EventQueue-License.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="..\.build\Fastec.Package.Release.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

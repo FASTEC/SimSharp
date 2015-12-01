@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\ExtensionPack\4.0\MSBuild.ExtensionPack.tasks" Condition="Exists('$(MSBuildExtensionsPath)\ExtensionPack\4.0\MSBuild.ExtensionPack.tasks')" />
+
+  <!-- Setup default settings for release build -->
+  <PropertyGroup Condition=" $(Configuration) == 'Release' ">
+    <!-- Property that enables building a package from a project -->
+    <BuildPackage Condition=" $(BuildPackage) == '' ">false</BuildPackage>
+    <!-- Place output files (remove private information) instead of just copying them -->
+    <PlaceFilesIntoOutputDirectory Condition=" $(PlaceFilesIntoOutputDirectory) == '' ">true</PlaceFilesIntoOutputDirectory>
+  </PropertyGroup>
+  <PropertyGroup>
+    <!-- Property that enables publishing a package from a project -->
+    <PublishPackage Condition=" $(PublishPackage) == '' ">false</PublishPackage>
+    <!-- Property that enables building a package from a project -->
+    <BuildPackage Condition=" $(BuildPackage) == '' ">false</BuildPackage>
+    <!-- Place output files (remove private information) instead of just copying them -->
+    <PlaceFilesIntoOutputDirectory Condition=" $(PlaceFilesIntoOutputDirectory) == '' ">false</PlaceFilesIntoOutputDirectory>
+    <!-- Stop packaging non-release builds -->
+    <PackageReleaseOnly Condition="'$(PackageReleaseOnly)' == '' ">true</PackageReleaseOnly>
+    <!-- Include referenced projects, not only packages mentioned in packages.config. -->
+    <IncludeReferencedProjects Condition="'$(IncludeReferencedProjects)' == '' ">true</IncludeReferencedProjects>
+    <!-- Package destination -->
+    <PackageDir Condition="$(PackageDir) == ''">$(OutDir)</PackageDir>
+    <!-- Use project file to pack package (not only nuspec file) -->
+    <PackUseProject Condition=" $(PackUseProject) == '' and $(PackageName) == '' and $(PackageSpecPath) == '' ">true</PackUseProject>
+    <!-- Package specification -->
+    <PackageSpecPath Condition="$(PackageSpecPath) == ''">$(ProjectDir)$(ProjectName).nuspec</PackageSpecPath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Inject automatic target calls without preventing manual target calls. -->
+    <PackageAfterTargets Condition=" $(BuildPackage) == 'true' ">Build</PackageAfterTargets>
+    <PublishAfterTargets Condition=" $(PublishPackage) == 'true' ">Package</PublishAfterTargets>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyInfoFiles Include="**/AssemblyInfo.cs"/>
+  </ItemGroup>
+
+  <Target Name="GetAssemblyVersion"
+          BeforeTargets="BeforeBuild">
+    <ReadLinesFromFile File="@(AssemblyInfoFiles)">
+      <Output TaskParameter="Lines" ItemName="_AssemblyInfoFileLines"/>
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_Content>@(_AssemblyInfoFileLines)</_Content>
+      <_Pattern>;\s*\[\s*assembly:\s*AssemblyVersion\s*\(\s*"(.*?)"\s*\)\s*\]</_Pattern>
+      <AssemblyVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.Text.RegularExpressions.Regex]::Match($(_Content), $(_Pattern)).ToString()), "%22(.*?)%22").Groups.get_Item(1) )</AssemblyVersion>
+      <_Pattern>;\s*\[\s*assembly:\s*AssemblyInformationalVersion\s*\(\s*"(.*?)"\s*\)\s*\]</_Pattern>
+      <AssemblyInformationalVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.Text.RegularExpressions.Regex]::Match($(_Content), $(_Pattern)).ToString()), "%22(.*?)%22").Groups.get_Item(1) )</AssemblyInformationalVersion>
+      <_Pattern>;\s*\[\s*assembly:\s*AssemblyFileVersion\s*\(\s*"(.*?)"\s*\)\s*\]</_Pattern>
+      <AssemblyFileVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.Text.RegularExpressions.Regex]::Match($(_Content), $(_Pattern)).ToString()), "%22(.*?)%22").Groups.get_Item(1) )</AssemblyFileVersion>
+    </PropertyGroup>
+    <PropertyGroup Condition=" $(AssemblyVersion) != '' ">
+      <AssemblyMajorVersion>$(AssemblyVersion.Split('.')[0])</AssemblyMajorVersion>
+      <AssemblyMinorVersion>$(AssemblyVersion.Split('.')[1])</AssemblyMinorVersion>
+      <AssemblyBuildNumber>$(AssemblyVersion.Split('.')[2])</AssemblyBuildNumber>
+      <AssemblyRevision>$(AssemblyVersion.Split('.')[3])</AssemblyRevision>
+    </PropertyGroup>
+    <PropertyGroup Condition=" $(AssemblyFileVersion) != '' ">
+      <AssemblyFileMajorVersion>$(AssemblyFileVersion.Split('.')[0])</AssemblyFileMajorVersion>
+      <AssemblyFileMinorVersion>$(AssemblyFileVersion.Split('.')[1])</AssemblyFileMinorVersion>
+      <AssemblyFileBuildNumber>$(AssemblyFileVersion.Split('.')[2])</AssemblyFileBuildNumber>
+      <AssemblyFileRevision>$(AssemblyFileVersion.Split('.')[3])</AssemblyFileRevision>
+    </PropertyGroup>
+    <Message Text="Building '$(AssemblyName)' Version $(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyRevision) [build: $(AssemblyBuildNumber)]."/>
+  </Target>
+
+  <Target Name="GetPackageVersion" DependsOnTargets="GetAssemblyVersion">
+    <!-- Get PackageVersion from package specification -->
+    <XmlPeek Namespaces="&lt;Namespace Prefix='pkg' Uri='http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd'/&gt;"
+             XmlInputPath="$(PackageSpecPath)"
+             Query="/pkg:package/pkg:metadata/pkg:version/text()"
+             Condition="Exists('$(PackageSpecPath)')">
+      <Output TaskParameter="Result" ItemName="PackageVersion" />
+    </XmlPeek>
+    <!-- Get PackageName from package specification -->
+    <XmlPeek Namespaces="&lt;Namespace Prefix='pkg' Uri='http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd'/&gt;"
+             XmlInputPath="$(PackageSpecPath)"
+             Query="/pkg:package/pkg:metadata/pkg:id/text()"
+             Condition="Exists('$(PackageSpecPath)')">
+      <Output TaskParameter="Result" ItemName="PackageName" />
+    </XmlPeek>
+    <PropertyGroup>
+      <PackageVersion>@(PackageVersion)</PackageVersion>
+      <PackageName>@(PackageName)</PackageName>
+      <!-- Use package name default $(AssemblyName), if package name is not set or specified in package specification -->
+      <PackageName Condition=" $(PackageName) == '' or $(PackageName) == '$Id$' ">$(AssemblyName)</PackageName>
+      <!-- Use package version default $(AssemblyInformationalVersion), if package version is not set or specified in package specification  -->
+      <PackageVersion Condition="  $(PackageVersion) == '' or $(PackageVersion) == '$Version$' ">$(AssemblyInformationalVersion)</PackageVersion>
+      <!-- If no information version of the target assembly is specified, use Major.Minor.Revision scheme -->
+      <PackageVersion Condition=" $(PackageVersion) == '' ">$(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyRevision)</PackageVersion>
+      <PackagePath>$(PackageDir)$(PackageName).$(PackageVersion).nupkg</PackagePath>
+    </PropertyGroup>
+    <Message Text="Packaging '$(PackageName)' Version $(PackageVersion)"/>
+  </Target>
+
+  <Target Name="UpdateBuildNumber" Outputs="@(AssemblyInfoFiles)">
+    <TfsSource Version="2012" TaskAction="Checkout" ItemPath="@(AssemblyInfoFiles)" Condition=" $(VersionControlSystem) == 'TFS' "/>
+    <AssemblyInfo AssemblyInfoFiles="@(AssemblyInfoFiles)"
+                  AssemblyBuildNumber="$([System.DateTime]::Now.ToString(&quot;MMdd&quot;))">
+      <Output TaskParameter="MaxAssemblyVersion" PropertyName="AssemblyVersion"/>
+    </AssemblyInfo>
+    <PropertyGroup>
+      <AssemblyMajorVersion>$(AssemblyVersion.Split('.')[0])</AssemblyMajorVersion>
+      <AssemblyMinorVersion>$(AssemblyVersion.Split('.')[1])</AssemblyMinorVersion>
+      <AssemblyBuildNumber>$(AssemblyVersion.Split('.')[2])</AssemblyBuildNumber>
+      <AssemblyRevision>$(AssemblyVersion.Split('.')[3])</AssemblyRevision>
+    </PropertyGroup>
+    <AssemblyInfo AssemblyInfoFiles="@(AssemblyInfoFiles)"
+                  AssemblyInformationalVersion="$(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyRevision)"
+                  AssemblyFileVersion="$(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyBuildNumber).$(AssemblyRevision)"
+                  UpdateAssemblyInformationalVersion="true">
+    </AssemblyInfo>
+    <Message Text="Bump build number to $(AssemblyBuildNumber)."/>
+  </Target>
+
+  <Target Name="IncreaseRevision" Outputs="@(AssemblyInfoFiles)">
+    <TfsSource Version="2012" TaskAction="Checkout" ItemPath="@(AssemblyInfoFiles)" Condition=" $(VersionControlSystem) == 'TFS' "/>
+    <AssemblyInfo AssemblyInfoFiles="@(AssemblyInfoFiles)"
+                  AssemblyRevisionType="AutoIncrement"
+                  AssemblyRevisionFormat="#"
+                  AssemblyBuildNumber="$([System.DateTime]::Now.ToString(&quot;MMdd&quot;))">
+      <!-- Work around date update problem: AssemblyInfo internal function crashes if date string unequals today. (5.0.7) -->
+      <Output TaskParameter="MaxAssemblyVersion" PropertyName="AssemblyVersion"/>
+    </AssemblyInfo>
+    <PropertyGroup>
+      <AssemblyMajorVersion>$(AssemblyVersion.Split('.')[0])</AssemblyMajorVersion>
+      <AssemblyMinorVersion>$(AssemblyVersion.Split('.')[1])</AssemblyMinorVersion>
+      <AssemblyBuildNumber>$(AssemblyVersion.Split('.')[2])</AssemblyBuildNumber>
+      <AssemblyRevision>$(AssemblyVersion.Split('.')[3])</AssemblyRevision>
+    </PropertyGroup>
+    <AssemblyInfo AssemblyInfoFiles="@(AssemblyInfoFiles)"
+                  AssemblyInformationalVersion="$(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyRevision)"
+                  AssemblyFileVersion="$(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyBuildNumber).$(AssemblyRevision)"
+                  UpdateAssemblyInformationalVersion="true">
+    </AssemblyInfo>
+    <Message Text="Bump version to $(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyRevision) [build: $(AssemblyBuildNumber)]."/>
+  </Target>
+
+  <Target Name="IncreaseMinorVersion" Outputs="@(AssemblyInfoFiles)">
+    <TfsSource Version="2012" TaskAction="Checkout" ItemPath="@(AssemblyInfoFiles)" Condition=" $(VersionControlSystem) == 'TFS' "/>
+    <AssemblyInfo AssemblyInfoFiles="@(AssemblyInfoFiles)"
+                  AssemblyBuildNumber="$([System.DateTime]::Now.ToString(&quot;MMdd&quot;))">
+      <Output TaskParameter="MaxAssemblyVersion" PropertyName="AssemblyVersion"/>
+    </AssemblyInfo>
+    <PropertyGroup>
+      <AssemblyMajorVersion>$(AssemblyVersion.Split('.')[0])</AssemblyMajorVersion>
+      <AssemblyMinorVersion>$(AssemblyVersion.Split('.')[1])</AssemblyMinorVersion>
+      <AssemblyBuildNumber>$(AssemblyVersion.Split('.')[2])</AssemblyBuildNumber>
+      <AssemblyRevision>$(AssemblyVersion.Split('.')[3])</AssemblyRevision>
+    </PropertyGroup>
+    <PropertyGroup>
+      <AssemblyMinorVersion>$([MSBuild]::Add($(AssemblyMinorVersion), 1))</AssemblyMinorVersion>
+      <AssemblyRevision>0</AssemblyRevision>
+    </PropertyGroup>
+    <AssemblyInfo AssemblyInfoFiles="@(AssemblyInfoFiles)"
+                  AssemblyMajorVersion="$(AssemblyMajorVersion)"
+                  AssemblyMinorVersion="$(AssemblyMinorVersion)"
+                  AssemblyBuildNumber="$(AssemblyBuildNumber)"
+                  AssemblyRevision="$(AssemblyRevision)"
+                  AssemblyInformationalVersion="$(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyRevision)"
+                  AssemblyFileVersion="$(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyBuildNumber).$(AssemblyRevision)"
+                  UpdateAssemblyInformationalVersion="true">
+    </AssemblyInfo>
+    <Message Text="Bump version to $(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyRevision) [build: $(AssemblyBuildNumber)]."/>
+  </Target>
+
+  <Target Name="IncreaseMajorVersion" Outputs="@(AssemblyInfoFiles)">
+    <TfsSource Version="2012" TaskAction="Checkout" ItemPath="@(AssemblyInfoFiles)" Condition=" $(VersionControlSystem) == 'TFS' "/>
+    <AssemblyInfo AssemblyInfoFiles="@(AssemblyInfoFiles)"
+                  AssemblyBuildNumber="$([System.DateTime]::Now.ToString(&quot;MMdd&quot;))">
+      <!-- Work around date update problem: AssemblyInfo internal function crashes if date string unequals today. (5.0.7) -->
+      <Output TaskParameter="MaxAssemblyVersion" PropertyName="AssemblyVersion"/>
+    </AssemblyInfo>
+    <PropertyGroup>
+      <AssemblyMajorVersion>$(AssemblyVersion.Split('.')[0])</AssemblyMajorVersion>
+      <AssemblyMinorVersion>$(AssemblyVersion.Split('.')[1])</AssemblyMinorVersion>
+      <AssemblyBuildNumber>$(AssemblyVersion.Split('.')[2])</AssemblyBuildNumber>
+      <AssemblyRevision>$(AssemblyVersion.Split('.')[3])</AssemblyRevision>
+    </PropertyGroup>
+    <PropertyGroup>
+      <AssemblyMajorVersion>$([MSBuild]::Add($(AssemblyMajorVersion), 1))</AssemblyMajorVersion>
+      <AssemblyMinorVersion>0</AssemblyMinorVersion>
+      <AssemblyRevision>0</AssemblyRevision>
+    </PropertyGroup>
+    <AssemblyInfo AssemblyInfoFiles="@(AssemblyInfoFiles)"
+                  AssemblyMajorVersion="$(AssemblyMajorVersion)"
+                  AssemblyMinorVersion="$(AssemblyMinorVersion)"
+                  AssemblyBuildNumber="$(AssemblyBuildNumber)"
+                  AssemblyRevision="$(AssemblyRevision)"
+                  AssemblyInformationalVersion="$(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyRevision)"
+                  AssemblyFileVersion="$(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyBuildNumber).$(AssemblyRevision)"
+                  UpdateAssemblyInformationalVersion="true">
+    </AssemblyInfo>
+    <Message Text="Bump version to $(AssemblyMajorVersion).$(AssemblyMinorVersion).$(AssemblyRevision) [build: $(AssemblyBuildNumber)]."/>
+  </Target>
+
+  <!-- Nuget Package Management -->
+
+  <Target Name="Package" DependsOnTargets="Build;GetPackageVersion"
+          AfterTargets="$(PackageAfterTargets)"
+          Inputs="$(TargetPath)"
+          Outputs="$(PackagePath)">
+    <Error Condition=" '$(Configuration)' != 'Release' And '$(PackageReleaseOnly)' == 'true'" Text="It's recommended to package Release builds only, but currently packaging a $(Configuration) build. Set %24(PackageReleaseOnly) to false to override."/>
+    <PropertyGroup>
+      <_IncludeReferencedProjectsSwitch Condition=" $(IncludeReferencedProjects) == 'true' ">-IncludeReferencedProjects</_IncludeReferencedProjectsSwitch>
+      <_SpecFile>$(PackageSpecPath)</_SpecFile>
+      <_SpecFile Condition =" $(PackUseProject) == 'true' ">$(ProjectPath)</_SpecFile>
+      <_PackCommand>nuget.exe pack "$(_SpecFile)" $(_IncludeReferencedProjectsSwitch) -Properties "Configuration=$(Configuration);OutDir=$(OutDir);" -NonInteractive -OutputDirectory "$(PackageDir.Trim('\'))" </_PackCommand>
+    </PropertyGroup>
+    <Exec Command="$(_PackCommand)" LogStandardErrorAsError="true" />
+  </Target>
+
+  <!-- Push NuGet packet to server -->
+  <Target Name="PublishPackage" DependsOnTargets="Package"
+          AfterTargets="$(PublishAfterTargets)">
+    <PropertyGroup>
+      <_ConfigFileArgument Condition=" $(NuGetConfig) != '' ">-ConfigFile "$(NuGetConfig)"</_ConfigFileArgument>
+      <_PushSourceArgument Condition=" $(PackagePushSource) != '' ">-Source "$(PackagePushSource)"</_PushSourceArgument>
+      <_PushCommand>nuget.exe push "$(PackagePath)" $(_ConfigFileArgument) $(_PushSourceArgument) -NonInteractive</_PushCommand>
+    </PropertyGroup>
+    <Exec Command="$(_PushCommand)" LogStandardErrorAsError="true" />
+  </Target>
+
+  <!-- Publish symbols -->
+  <Target Name="PublishSymbols" DependsOnTargets="Build">
+    <Error Condition=" '$(SymbolServer)' == '' " Text="No SymbolServer defined."/>
+    <PropertyGroup>
+      <_StoreCommand>symstore.exe add /f "$(OutDir)*.pdb" /s "$(SymbolServer)" /t "$(ProjectName)" /v "$(AssemblyVersion)"</_StoreCommand>
+    </PropertyGroup>
+    <Exec Command="$(_StoreCommand)" LogStandardErrorAsError="true" />
+  </Target>
+
+  <Target Name="PlaceFilesIntoOutputDirectory"
+        BeforeTargets="CopyFilesToOutputDirectory"
+        Inputs="@(IntermediateAssembly)"
+        Outputs="@(IntermediateAssembly->'$(OutDir)%(FileName)%(Extension)')"
+        Condition=" $(PlaceFilesIntoOutputDirectory) == 'true' ">
+
+    <!-- Use binplace.exe to copy build artifacts, because thats clean them from information that may not be published, particulary the pdb path. -->
+    <PropertyGroup>
+      <_PlaceCommand>binplace.exe -q -:DEST . -r "$(OutDir.TrimEnd('\'))" "@(IntermediateAssembly)"</_PlaceCommand>
+    </PropertyGroup>
+    <Exec Command="$(_PlaceCommand)" LogStandardErrorAsError="true"/>
+
+    <!-- Add copied files to FileWrites to may be cleaned later on -->
+    <ItemGroup>
+      <FileWrites Include="@(IntermediateAssembly->'$(OutDir)%(FileName)$(TargetExt)');@(IntermediateAssembly->'$(OutDir)%(FileName).pdb')"/>
+    </ItemGroup>
+
+    <!-- Disable copying of main build artifacts (assembly and program database [pdb]), because placebin has copied them already. -->
+    <PropertyGroup>
+      <CopyBuildOutputToOutputDirectory>false</CopyBuildOutputToOutputDirectory>
+      <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
+    </PropertyGroup>
+  </Target>
+
+</Project>
