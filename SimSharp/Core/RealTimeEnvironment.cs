@@ -23,7 +23,7 @@ namespace SimSharp {
 
         public override void Step() {
             var evt_time = Peek();
-            var real_time = real_start.Add( evt_time.Subtract( env_start ) );
+            var real_time = real_start.Add( TimeSpan.FromMilliseconds( evt_time.Subtract( env_start ).TotalMilliseconds * factor ) );
             var delta = real_time - DateTime.Now;
 
             if ( strict && ( DateTime.Now - real_time ).TotalSeconds > factor ) {
